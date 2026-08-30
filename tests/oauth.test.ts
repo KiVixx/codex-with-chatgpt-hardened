@@ -8,6 +8,7 @@ let bridge: Bridge;
 let base: string;
 
 const REDIRECT_URI = "http://127.0.0.1:19999/callback";
+let registrationCounter = 0;
 
 beforeAll(async () => {
   isolateStateDir();
@@ -30,7 +31,7 @@ afterAll(async () => {
 async function registerClient(): Promise<string> {
   const response = await fetch(`${base}/oauth/register`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "cf-connecting-ip": `198.51.100.${++registrationCounter}` },
     body: JSON.stringify({ client_name: "ChatGPT-Test", redirect_uris: [REDIRECT_URI] }),
   });
   expect(response.status).toBe(201);
@@ -252,6 +253,30 @@ describe("authorization + token flow", () => {
       body: JSON.stringify({ redirect_uris: ["http://evil.example.com/cb"] }),
     });
     expect(response.status).toBe(400);
+  });
+});
+
+describe("OAuth abuse controls", () => {
+  it("rate limits registration floods", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const response = await fetch(`${base}/oauth/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ client_name: `flood-${i}`, redirect_uris: [REDIRECT_URI] }),
+      });
+      statuses.push(response.status);
+    }
+    expect(statuses).toContain(429);
+  });
+
+  it("rejects oversized registration bodies", async () => {
+    const response = await fetch(`${base}/oauth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ client_name: "x".repeat(40_000), redirect_uris: [REDIRECT_URI] }),
+    });
+    expect(response.status).toBe(413);
   });
 });
 

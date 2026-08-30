@@ -24,8 +24,9 @@ beforeAll(async () => {
   isolateStateDir();
   root = makeTmpDir("mcp-ws");
   makeGitRepo(root);
-  write(root, "package.json", JSON.stringify({ name: "demo", scripts: { test: "vitest run" }, dependencies: { react: "^19.0.0" } }));
+  write(root, "package.json", JSON.stringify({ name: "demo", scripts: { test: "API_TOKEN=example-secret vitest run" }, dependencies: { react: "^19.0.0" } }));
   write(root, ".env", "API_KEY=supersecret\n");
+  write(root, "src/leak.ts", 'export const API_TOKEN = "example-secret";\n');
   // an uncommitted change so git_diff has content
   write(root, "src/index.ts", "export const answer = 43; // changed\n");
 
@@ -80,6 +81,7 @@ describe("MCP tools over Streamable HTTP", () => {
     expect(info.workspaceId).toBe(bridge.workspace.id);
     expect(info.projectType).toBe("node");
     expect(info.frameworks).toContain("React");
+    expect(JSON.stringify(info)).not.toContain("example-secret");
     expect(info.git.isRepo).toBe(true);
     expect(info.git.branch).toBe("main");
   });
@@ -116,6 +118,13 @@ describe("MCP tools over Streamable HTTP", () => {
     const result = await client.callTool({ name: "search_workspace", arguments: { query: "answer" } });
     const search = jsonOf<{ matches: { path: string; line: number }[] }>(result);
     expect(search.matches.some((match) => match.path === "src/index.ts")).toBe(true);
+  });
+
+  it("redacts secrets in search and diff responses", async () => {
+    const search = textOf(await client.callTool({ name: "search_workspace", arguments: { query: "example-secret" } }));
+    expect(search).not.toContain("example-secret");
+    const diff = textOf(await client.callTool({ name: "git_diff", arguments: { mode: "unstaged" } }));
+    expect(diff).not.toContain("example-secret");
   });
 
   it("git_status reports the dirty file", async () => {

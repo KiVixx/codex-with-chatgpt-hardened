@@ -123,6 +123,12 @@ describe("sensitive files", () => {
     expectDenied("nested/.ssh/config");
   });
 
+  it("denies additional credential and infrastructure files", () => {
+    for (const file of [".envrc", ".pypirc", ".kube/config", "terraform.tfstate", ".docker/config.json", "auth.json", "wg0.conf"]) {
+      expectDenied(file);
+    }
+  });
+
   it("honors .c2cignore custom rules", () => {
     expectDenied("private-notes/todo.md");
   });

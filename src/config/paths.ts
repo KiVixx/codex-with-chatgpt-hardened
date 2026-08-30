@@ -24,6 +24,11 @@ export function getStateDir(): string {
 
 export function ensureDir(dir: string): string {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try {
+    fs.chmodSync(dir, 0o700);
+  } catch {
+    // Windows and other platforms may not implement POSIX permissions.
+  }
   return dir;
 }
 

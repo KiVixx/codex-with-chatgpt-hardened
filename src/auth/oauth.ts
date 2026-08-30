@@ -5,6 +5,7 @@ import { PairingManager } from "../pairing/manager.js";
 import type { Logger } from "../logger/index.js";
 import { PRODUCT_NAME } from "../version.js";
 import { escapeHtml, setAuthSecurityHeaders } from "./html.js";
+import { getTrustedClientIp } from "../security/request.js";
 
 export interface OAuthDeps {
   store: AuthStore;
@@ -137,6 +138,10 @@ function pairingPage(opts: {
 export function createOAuthRouter(deps: OAuthDeps): Router {
   const router = Router();
   const pendingRequests = new Map<string, PendingAuthRequest>();
+  const registrationHits = new Map<string, { count: number; resetAt: number }>();
+  const registrationWindowMs = 60_000;
+  const registrationLimit = 10;
+  const registrationClientCap = 128;
 
   const prunePending = (): void => {
     const now = Date.now();
@@ -161,7 +166,22 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
 
   // ---- Dynamic Client Registration (RFC 7591) ------------------------------
 
-  router.post("/oauth/register", json(), (req, res) => {
+  router.post("/oauth/register", json({ limit: "32kb" }), (req, res) => {
+    const now = Date.now();
+    const ip = getTrustedClientIp(req);
+    const hit = registrationHits.get(ip);
+    if (!hit || now > hit.resetAt) registrationHits.set(ip, { count: 1, resetAt: now + registrationWindowMs });
+    else {
+      hit.count++;
+      if (hit.count > registrationLimit) {
+        res.status(429).json({ error: "rate_limited", error_description: "Too many registrations; try again later." });
+        return;
+      }
+    }
+    if (deps.store.clientCount() >= registrationClientCap) {
+      res.status(429).json({ error: "registration_limit", error_description: "Workspace client registration limit reached." });
+      return;
+    }
     const body = req.body as { client_name?: string; redirect_uris?: unknown };
     const redirectUris = Array.isArray(body.redirect_uris) ? body.redirect_uris : [];
     if (
@@ -249,7 +269,7 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
       res.status(400).send("This authorization request has expired. Please reconnect from ChatGPT.");
       return;
     }
-    const verdict = deps.pairing.verify(body.pairing_code ?? "", req.ip);
+    const verdict = deps.pairing.verify(body.pairing_code ?? "", getTrustedClientIp(req));
     if (!verdict.ok) {
       const messages: Record<string, string> = {
         invalid: `Incorrect pairing code.${verdict.attemptsLeft !== undefined ? ` ${verdict.attemptsLeft} attempts left.` : ""}`,

@@ -16,6 +16,7 @@ import { Logger, nullLogger } from "../logger/index.js";
 import { DEFAULT_HOST, DEFAULT_PORT } from "../config/paths.js";
 import { SERVICE_NAME, VERSION } from "../version.js";
 import { writeRuntimeState, clearRuntimeState, type RuntimeState } from "./runtime.js";
+import { isLoopback } from "../security/request.js";
 
 function tunnelForWorkspace(workspaceId: string, logger: Logger): TunnelProvider {
   const binding = namedTunnelBinding(readTunnelState(workspaceId));
@@ -95,7 +96,6 @@ export async function startBridge(opts: BridgeOptions): Promise<Bridge> {
   let publicBaseUrl: string | null = null;
 
   const app = express();
-  app.set("trust proxy", true);
   app.disable("x-powered-by");
 
   const getBaseUrl = (req: Request): string => {
@@ -108,7 +108,7 @@ export async function startBridge(opts: BridgeOptions): Promise<Bridge> {
   // ---- Health (public but minimal) ---------------------------------------
 
   app.get("/health", (_req, res) => {
-    res.json({ service: SERVICE_NAME, version: VERSION, workspaceId: workspace.id, status: "ok" });
+    res.json({ service: SERVICE_NAME, status: "ok" });
   });
 
   // ---- OAuth + discovery ---------------------------------------------------
@@ -140,11 +140,11 @@ export async function startBridge(opts: BridgeOptions): Promise<Bridge> {
   const adminGuard = (req: Request, res: Response, next: NextFunction): void => {
     // Defense in depth: reject anything that arrived through a proxy/tunnel.
     const remote = req.socket.remoteAddress ?? "";
-    const isLoopback = remote === "127.0.0.1" || remote === "::1" || remote === "::ffff:127.0.0.1";
+    const loopback = isLoopback(remote);
     const viaProxy = Boolean(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"]);
     const header = req.headers.authorization ?? "";
     const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-    if (!isLoopback || viaProxy || token !== adminToken) {
+    if (!loopback || viaProxy || token !== adminToken) {
       res.status(404).end(); // do not advertise the admin surface
       return;
     }

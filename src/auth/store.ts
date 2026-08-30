@@ -128,6 +128,10 @@ export class AuthStore {
     return this.clients.get(clientId);
   }
 
+  clientCount(): number {
+    return this.clients.size;
+  }
+
   // ---- Authorization codes ----------------------------------------------
 
   createAuthorizationCode(input: {
@@ -252,6 +256,7 @@ export class AuthStore {
     const count = this.tokens.size;
     this.tokens.clear();
     this.authCodes.clear();
+    this.clients.clear();
     this.save();
     return count;
   }

@@ -98,7 +98,7 @@ export async function stopBridge(workspaceRoot: string): Promise<boolean> {
   const runtime = readRuntimeState(workspace.id);
   if (!runtime) return false;
   const healthy = await probeBridge(runtime.port);
-  if (healthy && healthy.workspaceId === workspace.id) {
+  if (healthy && healthy.status === "ok") {
     try {
       await adminFetch(runtime, "POST", "/admin/shutdown", 5000);
       return true;

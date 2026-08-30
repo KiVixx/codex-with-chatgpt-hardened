@@ -296,14 +296,14 @@ export class Workspace {
     languages: string[];
     frameworks: string[];
     packageManager: string | null;
-    scripts: Record<string, string>;
+    scripts: string[];
   } {
     const has = (f: string): boolean => fs.existsSync(path.join(this.root, f));
     const languages = new Set<string>();
     const frameworks = new Set<string>();
     let projectType = "unknown";
     let packageManager: string | null = null;
-    let scripts: Record<string, string> = {};
+    let scripts: string[] = [];
 
     if (has("package.json")) {
       projectType = "node";
@@ -313,7 +313,7 @@ export class Workspace {
         dependencies?: Record<string, string>;
         devDependencies?: Record<string, string>;
       }>(path.join(this.root, "package.json"));
-      scripts = pkg?.scripts ?? {};
+      scripts = Object.keys(pkg?.scripts ?? {});
       const deps = { ...(pkg?.dependencies ?? {}), ...(pkg?.devDependencies ?? {}) };
       const known: Record<string, string> = {
         next: "Next.js",

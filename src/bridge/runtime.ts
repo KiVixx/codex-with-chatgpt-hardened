@@ -42,8 +42,6 @@ export function clearRuntimeState(workspaceId: string): void {
 
 export interface HealthPayload {
   service: string;
-  version: string;
-  workspaceId: string;
   status: string;
 }
 
@@ -70,7 +68,7 @@ export async function findLiveBridge(workspaceId: string): Promise<RuntimeState 
   const state = readRuntimeState(workspaceId);
   if (!state) return null;
   const health = await probeBridge(state.port);
-  if (health && health.workspaceId === workspaceId) return state;
+  if (health && health.status === "ok") return state;
   return null;
 }
 

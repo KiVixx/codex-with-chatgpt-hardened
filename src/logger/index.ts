@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ensureDir, getStateDir } from "../config/paths.js";
+import { redactSensitiveText } from "../security/redact.js";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 const LEVELS: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -20,7 +21,7 @@ export function redact(input: string): string {
   for (const pattern of REDACT_PATTERNS) {
     out = out.replace(pattern, (_m, g1) => (typeof g1 === "string" ? `${g1}[REDACTED]` : "[REDACTED]"));
   }
-  return out;
+  return redactSensitiveText(out);
 }
 
 export interface LoggerOptions {
