@@ -27,9 +27,12 @@ Agent（Codex），然后去倒杯咖啡：
 
 1. 环境自检：需要 git 和 Node.js ≥ 20，缺什么就自动安装
   （macOS 用 Homebrew，Windows 用 winget），同时安装 cloudflared。
-2. 下载：把 https://github.com/XiaoDuoYa/codex-with-chatgpt 克隆到
-   ~/codex-with-chatgpt（已存在就 git pull 更新）。
-3. 构建：在该目录里执行 corepack pnpm install 和 corepack pnpm build。
+2. 下载：只把 https://github.com/KiVixx/codex-with-chatgpt-hardened 克隆到
+   ~/codex-with-chatgpt-hardened。禁止从 XiaoDuoYa/codex-with-chatgpt 自动更新；
+   已存在时先确认 origin 完全匹配 hardened fork，再执行 git fetch origin main。
+3. 构建验证：在该目录执行 corepack pnpm install --frozen-lockfile、
+   corepack pnpm typecheck、corepack pnpm test、corepack pnpm build 和
+   corepack pnpm audit。
 4. 安装 Skill：把仓库里的 skill/SKILL.md 复制到
    ~/.codex/skills/codex-with-chatgpt/SKILL.md，并把文件中
    "The codex-with-chatgpt checkout lives at:" 那一行的路径改成实际克隆路径。
@@ -42,12 +45,17 @@ Agent（Codex），然后去倒杯咖啡：
    Tunnel、端口这些词，不要向我解释；出了问题先自己修。
 ```
 
-**更新**：Skill 每天自动检查一次 GitHub，有新版本会自动更新并继续任务，
-无需任何操作；也可以随时对 Codex 说"更新 Codex with ChatGPT"。
+**更新**：Skill 可以检查 hardened fork 是否有新 SHA，但只会提示；不会自动
+pull、安装、构建或重启。只有你明确说「更新 hardened fork」，检查 SHA 与 diff
+并同意后才会更新。
+
+要在其他 Codex 任务或另一台电脑使用，请复制
+**[Hardened Fork 通用 Prompt](docs/hardened-codex-prompt.md)**。
 
 ## 安装 → 配置 → 使用（手动版）
 
-1. 安装 Codex Skill：把 `skill/` 复制到 `~/.codex/skills/codex-with-chatgpt/`。
+1. 克隆这个 hardened fork，再把 `skill/` 复制到
+   `~/.codex/skills/codex-with-chatgpt/`。
 2. 对 Codex 说：**"使用 Codex with ChatGPT 完成首次配置。"**
 3. 之后正常使用：**"使用 Codex with ChatGPT，帮我实现 XXX。"**
 
@@ -130,7 +138,7 @@ Ready.
 ```bash
 pnpm install
 pnpm build          # 产出 dist/，暴露 c2c 命令
-pnpm test           # vitest：76 个测试（路径安全、OAuth、配对、MCP 端到端）
+pnpm test           # vitest：131 个测试（路径安全、OAuth、配对、MCP 端到端）
 
 c2c setup           # 一条命令：Bridge + 隧道 + 配对码
 c2c sandbox-allow   # 把本地设置目录加入 Codex 沙箱白名单（macOS / Windows）
@@ -140,8 +148,9 @@ c2c status / doctor / pair / unpair / logs / stop
 环境要求：Node.js >= 20、git；公网连接需要 `cloudflared`
 （自动检测，Skill 会替你安装）。
 
-文档：[架构](docs/architecture.md) · [协议](docs/protocol.md) ·
-[安全](docs/security.md) · [故障排查](docs/troubleshooting.md)
+文档：[Hardened 通用 Prompt](docs/hardened-codex-prompt.md) ·
+[架构](docs/architecture.md) · [协议](docs/protocol.md) ·
+[安全](docs/security.md) · [更新](UPDATING.md) · [故障排查](docs/troubleshooting.md)
 
 ## 目录结构
 

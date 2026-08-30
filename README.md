@@ -39,9 +39,12 @@ Detailed docs below are in English · 详细中文文档见 **[README.zh-CN.md](
 
 1. 环境自检：需要 git 和 Node.js ≥ 20，缺什么就自动安装
   （macOS 用 Homebrew，Windows 用 winget），同时安装 cloudflared。
-2. 下载：把 https://github.com/XiaoDuoYa/codex-with-chatgpt 克隆到
-   ~/codex-with-chatgpt（已存在就 git pull 更新）。
-3. 构建：在该目录里执行 corepack pnpm install 和 corepack pnpm build。
+2. 下载：只把 https://github.com/KiVixx/codex-with-chatgpt-hardened 克隆到
+   ~/codex-with-chatgpt-hardened。禁止从 XiaoDuoYa/codex-with-chatgpt 自动更新；
+   已存在时先确认 origin 完全匹配 hardened fork，再执行 git fetch origin main。
+3. 构建验证：在该目录执行 corepack pnpm install --frozen-lockfile、
+   corepack pnpm typecheck、corepack pnpm test、corepack pnpm build 和
+   corepack pnpm audit。
 4. 安装 Skill：把仓库里的 skill/SKILL.md 复制到
    ~/.codex/skills/codex-with-chatgpt/SKILL.md，并把文件中
    "The codex-with-chatgpt checkout lives at:" 那一行的路径改成实际克隆路径。
@@ -65,9 +68,13 @@ I am a non-technical user — do everything yourself:
 1. Check the environment: git and Node.js >= 20 must be available. Install
    anything missing yourself (macOS: Homebrew, Windows: winget). Also install
    cloudflared.
-2. Download: clone https://github.com/XiaoDuoYa/codex-with-chatgpt into
-   ~/codex-with-chatgpt (if it already exists, git pull to update).
-3. Build: inside that folder run `corepack pnpm install` then `corepack pnpm build`.
+2. Download only https://github.com/KiVixx/codex-with-chatgpt-hardened into
+   ~/codex-with-chatgpt-hardened. Never auto-update from
+   XiaoDuoYa/codex-with-chatgpt. If the folder exists, verify its origin URL
+   exactly matches the hardened fork before running `git fetch origin main`.
+3. Build and verify: run `corepack pnpm install --frozen-lockfile`,
+   `corepack pnpm typecheck`, `corepack pnpm test`, `corepack pnpm build`, and
+   `corepack pnpm audit`.
 4. Install the Skill: copy skill/SKILL.md to
    ~/.codex/skills/codex-with-chatgpt/SKILL.md, and update the line
    "The codex-with-chatgpt checkout lives at:" to the actual clone path.
@@ -82,10 +89,14 @@ I am a non-technical user — do everything yourself:
 ```
 
 
-**Updates · 更新** — The Skill checks GitHub once a day and updates itself when a
-new version is released; no action needed. You can also say "更新 Codex with ChatGPT"
-anytime. / Skill 每天自动检查一次 GitHub，有新版本会自动更新，无需任何操作；
-也可以随时对 Codex 说"更新 Codex with ChatGPT"。
+**Updates · 更新** — The Skill may check the hardened fork for a newer SHA, but
+checks are notification-only. It never pulls, installs, builds, or restarts on
+its own. Updates require an explicit request and review. / Skill 可以检查 hardened
+fork 是否有新 SHA，但只会提示，不会自动拉取、安装、构建或重启；只有明确要求并
+审查后才会更新。
+
+For a reusable prompt that works in other Codex tasks and on other machines,
+see **[Hardened Fork Prompt](docs/hardened-codex-prompt.md)**.
 
 ---
 
@@ -94,7 +105,8 @@ anytime. / Skill 每天自动检查一次 GitHub，有新版本会自动更新�
 
 ## Install → Setup → Use (manual)
 
-1. Install the Codex Skill: copy `skill/` to `~/.codex/skills/codex-with-chatgpt/`.
+1. Clone this hardened fork and install the Codex Skill: copy `skill/` to
+   `~/.codex/skills/codex-with-chatgpt/`.
 2. Tell Codex: **"Set up Codex with ChatGPT."** (中文: "使用 Codex with ChatGPT 完成首次配置。")
 3. Use Codex normally: **"Use Codex with ChatGPT to implement XXX."**
 
@@ -190,7 +202,7 @@ Full threat model: [docs/security.md](docs/security.md)
 ```bash
 pnpm install
 pnpm build          # -> dist/, exposes the `c2c` bin
-pnpm test           # vitest: 76 tests (path security, OAuth, pairing, MCP e2e)
+pnpm test           # vitest: 131 tests (path security, OAuth, pairing, MCP e2e)
 
 c2c setup           # bridge + tunnel + pairing code, all in one
 c2c sandbox-allow   # whitelist the settings dir in Codex (macOS + Windows)
@@ -200,8 +212,10 @@ c2c status / doctor / pair / unpair / logs / stop
 Requirements: Node.js >= 20, git. `cloudflared` for the public connection
 (auto-detected; the Skill installs it for you).
 
-Docs: [architecture](docs/architecture.md) · [protocol](docs/protocol.md) ·
-[security](docs/security.md) · [troubleshooting](docs/troubleshooting.md)
+Docs: [hardened Codex prompt](docs/hardened-codex-prompt.md) ·
+[architecture](docs/architecture.md) · [protocol](docs/protocol.md) ·
+[security](docs/security.md) · [updating](UPDATING.md) ·
+[troubleshooting](docs/troubleshooting.md)
 
 ## Project layout
 

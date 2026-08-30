@@ -1,7 +1,7 @@
 ---
 name: codex-with-chatgpt
 description: >
-  Use ChatGPT (web) as the planning and review brain for Codex coding sessions,
+  Use the security-hardened Codex with ChatGPT fork as the planning and review brain for Codex coding sessions,
   while Codex keeps full execution ownership. Use when the user says
   "使用 Codex with ChatGPT ..." / "Set up Codex with ChatGPT" / "用 ChatGPT 规划",
   when they ask to connect ChatGPT to the current workspace, disconnect it,
@@ -20,6 +20,11 @@ whatever data it needs by itself.
 
 **Golden rules**
 
+0. **Hardened source invariant.** The only supported repository is
+   `https://github.com/KiVixx/codex-with-chatgpt-hardened`. Never automatically
+   pull, merge, rebase, install, build, or execute code from
+   `XiaoDuoYa/codex-with-chatgpt`. The upstream repository may be inspected only
+   when the user explicitly asks for an upstream security audit.
 1. NEVER paste file contents, diffs, or logs into ChatGPT. ChatGPT reads them through MCP.
 2. NEVER show the user technical internals (MCP, OAuth, PKCE, tunnel, ports, localhost).
    Speak in terms of "连接 ChatGPT / 安全连接 / 配对".
@@ -149,15 +154,21 @@ commands (both are cheap / cached; never mention them unless an update exists):
 
 - `{ "updateAvailable": false }` → continue silently. Never mention the check.
 - `{ "updateAvailable": true }` → tell the user one line:
-  "检测到 Codex with ChatGPT 有新版本；如需更新，请明确告诉我。"
+  "检测到 hardened fork 有新版本；如需更新，请明确告诉我。"
   Do not update automatically or change the checkout.
+- Before any explicit update, verify `git remote get-url origin` exactly equals
+  `https://github.com/KiVixx/codex-with-chatgpt-hardened.git` (an equivalent URL
+  without `.git` is acceptable). If it does not match, do not fetch or modify
+  the checkout; report the mismatch.
 
 ## Workflow: update（仅在用户明确要求「更新 Codex with ChatGPT」时）
 
 Inside the checkout directory (see Locations):
 
-1. `git fetch upstream` (never stash or overwrite user changes).
-2. Show the current SHA, proposed SHA, and `git diff --stat`; wait for review before applying changes.
+1. Verify `origin` is the hardened fork, then run `git fetch origin main`
+   (never stash or overwrite user changes).
+2. Show the current SHA, proposed `origin/main` SHA, and `git diff --stat`; wait
+   for review before applying changes.
 3. After explicit approval, merge the reviewed changes and run `corepack pnpm install --frozen-lockfile && corepack pnpm build`.
 4. Re-install the Skill: copy `skill/SKILL.md` to
    `~/.codex/skills/codex-with-chatgpt/SKILL.md`, then fix the "checkout lives at:"
