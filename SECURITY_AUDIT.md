@@ -9,7 +9,7 @@
 - Baseline result: passed (115 tests before hardening changes)
 - `pnpm audit`: passed — no known vulnerabilities found
 
-This document records the security invariants, audit findings, and verification evidence for the hardened fork. Each logical fix is kept in a separate commit.
+This document records the security invariants, audit findings, and verification evidence for the hardened fork. The hardening changes are grouped in reviewable commits on the security branch and merged to `main`.
 
 ## Security invariants
 
