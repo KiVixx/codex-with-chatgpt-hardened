@@ -60,7 +60,9 @@ export interface GitStatusResult {
   conflicted: string[];
 }
 
-export function gitStatus(root: string): GitStatusResult {
+export function gitStatus(target: GitTarget): GitStatusResult {
+  const root = typeof target === "string" ? target : target.root;
+  const ignoreRules = typeof target === "object" && target.ignoreRules ? target.ignoreRules : new IgnoreRules(root);
   const empty: GitStatusResult = {
     isRepo: false,
     branch: null,
@@ -94,13 +96,16 @@ export function gitStatus(root: string): GitStatusResult {
         : parts.slice(8).join(" ");
       const x = xy[0];
       const y = xy[1];
+      if (ignoreRules.isSensitive(filePath)) continue;
       if (x !== ".") out.staged.push({ path: filePath, change: x });
       if (y !== ".") out.unstaged.push({ path: filePath, change: y });
     } else if (line.startsWith("? ")) {
-      out.untracked.push(line.slice(2));
+      const filePath = line.slice(2);
+      if (!ignoreRules.isSensitive(filePath)) out.untracked.push(filePath);
     } else if (line.startsWith("u ")) {
       const parts = line.split(" ");
-      out.conflicted.push(parts.slice(10).join(" "));
+      const filePath = parts.slice(10).join(" ");
+      if (!ignoreRules.isSensitive(filePath)) out.conflicted.push(filePath);
     }
   }
   return out;

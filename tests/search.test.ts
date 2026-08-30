@@ -90,4 +90,19 @@ describe.each(engines())("search engine: %s", (engine) => {
     expect(paths).toContain("src/auth.ts");
     expect(paths).not.toContain("README.md");
   });
+
+  it("bounds hostile regular expressions in the node fallback", async () => {
+    process.env.C2C_DISABLE_RG = "1";
+    resetRipgrepCache();
+    const result = await searchWorkspace(ws, { query: "(a+)+$", regex: true });
+    expect(result.engine).toBe("node");
+    expect(result.matches).toEqual([]);
+  });
+
+  it("rejects oversized search queries", async () => {
+    process.env.C2C_DISABLE_RG = "1";
+    resetRipgrepCache();
+    const result = await searchWorkspace(ws, { query: "x".repeat(257) });
+    expect(result.matches).toEqual([]);
+  });
 });

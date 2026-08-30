@@ -145,7 +145,7 @@ describe("authorization + token flow", () => {
 
   it("rejects a wrong pairing code", async () => {
     const clientId = await registerClient();
-    const { challenge } = pkceVerifierAndChallenge();
+    const { verifier, challenge } = pkceVerifierAndChallenge();
     bridge.pairing.create();
     const result = await authorizeWithPairing(clientId, challenge, "AAAA-AAAA");
     expect(result.code).toBeNull();
@@ -216,12 +216,14 @@ describe("authorization + token flow", () => {
 
   it("rejects PKCE verifier mismatch", async () => {
     const clientId = await registerClient();
-    const { challenge } = pkceVerifierAndChallenge();
+    const { verifier, challenge } = pkceVerifierAndChallenge();
     const pairing = bridge.pairing.create();
     const { code } = await authorizeWithPairing(clientId, challenge, pairing.code);
     const token = await exchangeToken(clientId, code!, "wrong-verifier-wrong-verifier-wrong");
     expect(token.status).toBe(400);
     expect(token.body.error).toBe("invalid_grant");
+    const retry = await exchangeToken(clientId, code!, verifier);
+    expect(retry.status).toBe(200);
   });
 
   it("authorization codes are one-time", async () => {
@@ -253,6 +255,21 @@ describe("authorization + token flow", () => {
       body: JSON.stringify({ redirect_uris: ["http://evil.example.com/cb"] }),
     });
     expect(response.status).toBe(400);
+  });
+
+  it("rejects an authorization request containing only unknown scopes", async () => {
+    const clientId = await registerClient();
+    const { challenge } = pkceVerifierAndChallenge();
+    const url = new URL(`${base}/oauth/authorize`);
+    url.searchParams.set("client_id", clientId);
+    url.searchParams.set("redirect_uri", REDIRECT_URI);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("code_challenge", challenge);
+    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("scope", "unknown.scope");
+    const response = await fetch(url, { redirect: "manual" });
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toContain("error=invalid_scope");
   });
 });
 

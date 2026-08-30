@@ -117,7 +117,19 @@ async function searchWithNode(
   opts: SearchOptions,
   limit: number
 ): Promise<SearchResult> {
-  const matcher = opts.regex ? new RegExp(opts.query, "i") : null;
+  if (opts.query.length > 256) return { matches: [], matchCount: 0, truncated: false, engine: "node" };
+  let matcher: RegExp | null = null;
+  if (opts.regex) {
+    // Reject common nested-quantifier forms that can make backtracking exponential.
+    if (/\([^)]*[+*][^)]*\)[+*{]/.test(opts.query)) {
+      return { matches: [], matchCount: 0, truncated: false, engine: "node" };
+    }
+    try {
+      matcher = new RegExp(opts.query, "i");
+    } catch {
+      return { matches: [], matchCount: 0, truncated: false, engine: "node" };
+    }
+  }
   const needle = opts.query.toLowerCase();
   const globRegex = opts.glob ? globToRegex(opts.glob) : null;
   const matches: SearchMatch[] = [];
@@ -156,7 +168,7 @@ async function searchWithNode(
         if (content.includes("\0")) continue;
         const lines = content.split("\n");
         for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+          const line = lines[i].slice(0, 10_000);
           const hit = matcher ? matcher.test(line) : line.toLowerCase().includes(needle);
           if (hit) {
             matches.push({ path: childRel, line: i + 1, text: line.trimEnd().slice(0, 500) });
@@ -188,7 +200,7 @@ function globToRegex(glob: string): RegExp {
 }
 
 export async function searchWorkspace(ws: Workspace, opts: SearchOptions): Promise<SearchResult> {
-  if (!opts.query || opts.query.length < 2) {
+  if (!opts.query || opts.query.length < 2 || opts.query.length > 256) {
     return { matches: [], matchCount: 0, truncated: false, engine: "node" };
   }
   const limit = Math.min(200, Math.max(1, Math.floor(opts.limit ?? 50)));

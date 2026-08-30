@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, urlencoded, json } from "express";
 import { randomBytes } from "node:crypto";
-import { AuthStore, SUPPORTED_SCOPES, base64UrlSha256, filterScopes, safeEqual } from "./store.js";
+import { AuthStore, MAX_CLIENT_REGISTRATIONS, SUPPORTED_SCOPES, base64UrlSha256, filterScopes, safeEqual } from "./store.js";
 import { PairingManager } from "../pairing/manager.js";
 import type { Logger } from "../logger/index.js";
 import { PRODUCT_NAME } from "../version.js";
@@ -139,9 +139,24 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
   const router = Router();
   const pendingRequests = new Map<string, PendingAuthRequest>();
   const registrationHits = new Map<string, { count: number; resetAt: number }>();
+  const authorizeHits = new Map<string, { count: number; resetAt: number }>();
   const registrationWindowMs = 60_000;
   const registrationLimit = 10;
-  const registrationClientCap = 128;
+  const authorizeWindowMs = 60_000;
+  const authorizeLimit = 30;
+  const requestCap = 128;
+
+  const checkRate = (hits: Map<string, { count: number; resetAt: number }>, key: string, limit: number, windowMs: number): boolean => {
+    const now = Date.now();
+    for (const [oldKey, entry] of hits) if (now > entry.resetAt) hits.delete(oldKey);
+    const entry = hits.get(key);
+    if (!entry || now > entry.resetAt) {
+      hits.set(key, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    entry.count++;
+    return entry.count <= limit;
+  };
 
   const prunePending = (): void => {
     const now = Date.now();
@@ -178,10 +193,6 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
         return;
       }
     }
-    if (deps.store.clientCount() >= registrationClientCap) {
-      res.status(429).json({ error: "registration_limit", error_description: "Workspace client registration limit reached." });
-      return;
-    }
     const body = req.body as { client_name?: string; redirect_uris?: unknown };
     const redirectUris = Array.isArray(body.redirect_uris) ? body.redirect_uris : [];
     if (
@@ -198,6 +209,10 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
       clientName: typeof body.client_name === "string" ? body.client_name.slice(0, 200) : undefined,
       redirectUris: redirectUris as string[],
     });
+    if (!client) {
+      res.status(429).json({ error: "registration_limit", error_description: `Workspace client registration limit reached (${MAX_CLIENT_REGISTRATIONS}).` });
+      return;
+    }
     deps.logger.info(`Registered OAuth client ${client.clientId} (${client.clientName ?? "unnamed"})`);
     res.status(201).json({
       client_id: client.clientId,
@@ -213,6 +228,11 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
 
   router.get("/oauth/authorize", (req, res) => {
     prunePending();
+    const ip = getTrustedClientIp(req);
+    if (!checkRate(authorizeHits, ip, authorizeLimit, authorizeWindowMs)) {
+      res.status(429).send("Too many authorization requests; try again later.");
+      return;
+    }
     const query = req.query as Record<string, string | undefined>;
     const client = query.client_id ? deps.store.getClient(query.client_id) : undefined;
     if (!client) {
@@ -242,6 +262,14 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
       return;
     }
     const scopes = filterScopes(query.scope);
+    if (query.scope && query.scope.trim() !== "" && scopes.length === 0) {
+      fail("invalid_scope", "No requested scopes are supported.");
+      return;
+    }
+    if (pendingRequests.size >= requestCap) {
+      res.status(429).send("Too many pending authorization requests; try again later.");
+      return;
+    }
     const request: PendingAuthRequest = {
       id: randomBytes(16).toString("hex"),
       clientId: client.clientId,
@@ -321,7 +349,7 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
         res.status(400).json({ error: "invalid_request" });
         return;
       }
-      const record = deps.store.consumeAuthorizationCode(code);
+      const record = deps.store.getAuthorizationCode(code);
       if (!record || record.clientId !== clientId) {
         res.status(400).json({ error: "invalid_grant" });
         return;
@@ -333,6 +361,11 @@ export function createOAuthRouter(deps: OAuthDeps): Router {
       if (!safeEqual(base64UrlSha256(codeVerifier), record.codeChallenge)) {
         deps.logger.warn("PKCE verification failed at token endpoint");
         res.status(400).json({ error: "invalid_grant", error_description: "PKCE verification failed" });
+        return;
+      }
+      const consumed = deps.store.consumeAuthorizationCode(code);
+      if (!consumed) {
+        res.status(400).json({ error: "invalid_grant" });
         return;
       }
       const tokens = deps.store.issueTokens({ clientId, scopes: record.scopes });

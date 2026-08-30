@@ -102,6 +102,8 @@ export class PairingManager {
   private checkIpRate(ip: string | undefined): boolean {
     if (!ip) return true;
     const now = Date.now();
+    for (const [oldIp, entry] of this.ipHits) if (now > entry.resetAt) this.ipHits.delete(oldIp);
+    if (!this.ipHits.has(ip) && this.ipHits.size >= 1024) return false;
     const entry = this.ipHits.get(ip);
     if (!entry || now > entry.resetAt) {
       this.ipHits.set(ip, { count: 1, resetAt: now + this.ipRateWindowMs });

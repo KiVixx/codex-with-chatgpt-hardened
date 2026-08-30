@@ -128,10 +128,12 @@ describe("MCP tools over Streamable HTTP", () => {
   });
 
   it("git_status reports the dirty file", async () => {
+    write(root, ".env.production", "SECRET=hidden-status-secret\n");
     const result = await client.callTool({ name: "git_status", arguments: {} });
-    const status = jsonOf<{ isRepo: boolean; unstaged: { path: string }[] }>(result);
+    const status = jsonOf<{ isRepo: boolean; unstaged: { path: string }[]; untracked: string[] }>(result);
     expect(status.isRepo).toBe(true);
     expect(status.unstaged.some((entry) => entry.path === "src/index.ts")).toBe(true);
+    expect(status.untracked).not.toContain(".env.production");
   });
 
   it("git_diff shows the change", async () => {
