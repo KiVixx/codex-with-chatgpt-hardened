@@ -215,7 +215,8 @@ Requirements: Node.js >= 20, git. `cloudflared` for the public connection
 Docs: [hardened Codex prompt](docs/hardened-codex-prompt.md) ·
 [architecture](docs/architecture.md) · [protocol](docs/protocol.md) ·
 [security](docs/security.md) · [updating](UPDATING.md) ·
-[troubleshooting](docs/troubleshooting.md)
+[troubleshooting](docs/troubleshooting.md) ·
+[contributing](CONTRIBUTING.md)
 
 ## Project layout
 
